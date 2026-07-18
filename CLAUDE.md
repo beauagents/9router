@@ -18,7 +18,7 @@ Dashboard/gateway (run from repo root):
 ```bash
 cp .env.example .env
 npm install
-PORT=20128 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run dev   # dev (webpack, port 20127 by default via next dev)
+PORT=20128 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run dev   # dev (port follows PORT env; defaults to 3000 if unset)
 npm run build && PORT=20128 HOSTNAME=0.0.0.0 npm run start           # production
 ```
 - Bun variants: `npm run dev:bun` / `build:bun` / `start:bun`.
@@ -89,3 +89,17 @@ Pre-translate hooks that compress `tool_result` content in-place to cut tokens. 
 - Security-sensitive env: `JWT_SECRET` (session cookie), `INITIAL_PASSWORD` (default `123456` — must override), `API_KEY_SECRET`, `MACHINE_ID_SALT`. Full env contract in `.env.example` and ARCHITECTURE.md's env matrix.
 - Binary/protobuf upstreams (kiro EventStream, cursor protobuf, commandcode NDJSON) don't round-trip through OpenAI — they're handled inside their own executor, not the translator.
 - Versioning: root and `cli/` are versioned independently; changes are logged in `CHANGELOG.md`. Commit style is Conventional Commits (`fix(translator): …`, `feat(...)`).
+
+## Auto-save, commit, and push (always-on workflow)
+
+After completing a set of edits in this repo, **always** do the following before ending the turn — do not wait to be asked:
+
+1. **Stage the edited files.** `git add` only the files you actually modified/created during this task. Do NOT `git add -A` — inspect `git status --short` and add paths selectively so you don't sweep in the user's unrelated WIP. Untracked files you created must be added explicitly.
+2. **Commit** with a Conventional Commit message (scope from the affected path when obvious). Skip if nothing you touched is staged (e.g. change was already committed in a prior step).
+3. **Check upstream — ALWAYS, every time.** Run `git remote -v` and `git rev-parse --abbrev-ref --symbolic-full-name @{u}`.
+   - If a push remote + upstream exist: `git push`.
+   - If a remote exists but the branch has no upstream: `git push -u origin <branch>`.
+   - If **no push remote exists**: create a **private** repo under the `beauagents` GitHub account with the same name as the repo directory: `gh repo create beauagents/<repo-name> --private --source=. --remote=origin --push`. If `gh` is not authenticated, stop and tell the user to run `gh auth login` — never guess tokens.
+4. **Verify** with `git status` and surface any leftover untracked files to the user.
+
+Guardrails: never force-push unless explicitly asked; never commit files the user didn't ask you to touch; never commit secrets (`.env` with real values, tokens); if a push is rejected due to remote changes, `git fetch` and `git pull --rebase` or report divergence — never overwrite remote history.
